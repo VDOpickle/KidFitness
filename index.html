@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StarMoves</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<main id="home" class="screen">
+  <header class="top">
+    <div class="brand"><span class="brand-mark">★</span><span>StarMoves</span></div>
+    <div id="kids" class="kids"></div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>Move your body.<br>Collect the stars.</h1>
+      <p>Stand back so the camera can see all of you, copy the coach, and earn up to 5 stars for every move.</p>
+    </div>
+    <div id="heroFig" class="hero-fig"></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button data-tab="programs" class="on">Programs</button>
+    <button data-tab="workout">Workouts</button>
+    <button data-tab="stretch">Stretches</button>
+  </nav>
+  <section id="grid" class="grid"></section>
+
+  <footer class="foot">
+    <button id="simBtn" class="link">Try demo mode (no camera)</button>
+    <span>Video never leaves this device. Grown-ups: please stay nearby and clear some floor space.</span>
+  </footer>
+</main>
+
+<!-- ============ PROGRAM DETAIL ============ -->
+<main id="detail" class="screen" hidden></main>
+
+<!-- ============ SESSION ============ -->
+<main id="session" class="screen" hidden>
+  <div class="stage">
+    <div id="stageInner" class="stage-inner">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <div class="hud-top">
+        <div class="pill"><span id="hudEmoji"></span><b id="hudName"></b><span id="hudStep" class="dim"></span></div>
+        <div class="hud-btns">
+          <button id="voiceBtn" title="Voice on/off">🔊</button>
+          <button id="skipBtn">Skip ›</button>
+          <button id="exitBtn" title="Exit">✕</button>
+        </div>
+      </div>
+
+      <div class="power"><div id="powerFill"></div><span>POWER</span></div>
+
+      <div id="msg" class="msg" hidden></div>
+      <div id="burst" class="burst" hidden></div>
+    </div>
+  </div>
+
+  <aside class="side">
+    <div class="coach">
+      <div class="label">Copy the coach</div>
+      <div id="coachFig" class="coach-fig"></div>
+      <p id="cue" class="cue"></p>
+    </div>
+    <div class="counter">
+      <div id="ring" class="ring"><div><b id="repNow">0</b><span id="repOf">of 5</span></div></div>
+      <div>
+        <div class="label" id="repLabel">Reps</div>
+        <div id="pips" class="pips"></div>
+      </div>
+    </div>
+    <div class="total"><span class="star">★</span><b id="totalStars">0</b><span class="dim">stars so far</span></div>
+  </aside>
+</main>
+
+<!-- ============ SUMMARY ============ -->
+<main id="summary" class="screen" hidden></main>
+
+<dialog id="kidDlg">
+  <form method="dialog">
+    <h3>Who is playing?</h3>
+    <input id="kidName" maxlength="14" placeholder="Name" autocomplete="off">
+    <div class="row"><button value="cancel" class="ghost">Cancel</button><button value="ok" class="primary">Add</button></div>
+  </form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -76,6 +76,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .voice-pick { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .voice-pick select { max-width: 240px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
 .ghost.small { padding: 8px 14px; font-size: 13.5px; }
+.card.game .big { font-size: 54px; line-height: 1; }
 .link { color: var(--teal); font-weight: 700; text-decoration: underline; }
 
 /* ---------- buttons ---------- */
@@ -220,3 +221,25 @@ dialog input { width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px
 dialog .row { justify-content: flex-end; }
 
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01s !important; transition: none !important; } }
+
+/* ---------- game: road run ---------- */
+#game { position: relative; height: 100dvh; overflow: hidden; background: #0a1020; }
+#gcv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.g-top { position: absolute; z-index: 5; top: 14px; left: 14px; right: 14px; display: flex; gap: 10px; align-items: flex-start; }
+.g-top .hud-btns { margin-left: auto; }
+.g-prog { position: absolute; z-index: 5; top: 68px; left: 14px; right: 14px; height: 10px; border-radius: 999px; background: rgba(8, 14, 28, .55); overflow: hidden; }
+.g-prog i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--teal), var(--mint)); }
+.g-hint { position: absolute; z-index: 4; top: 92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  padding: 8px 26px 8px 14px; border-radius: 999px; background: rgba(8, 14, 28, .78); backdrop-filter: blur(8px);
+  font-size: clamp(26px, 4.4vw, 52px); font-weight: 900; white-space: nowrap; }
+.g-hint svg { height: clamp(60px, 9vw, 110px); width: auto; }
+.g-hint.now { background: var(--star); color: #1b1300; animation: nudge .35s ease-in-out infinite alternate; }
+.g-hint.now .fig-bones { stroke: #1b1300; } .g-hint.now .fig-head { fill: #1b1300; } .g-hint.now .fig-dots { fill: #fff; }
+@keyframes nudge { to { transform: translateX(-50%) scale(1.07); } }
+#game .msg { pointer-events: none; }
+#game .msg .primary { pointer-events: auto; }
+.g-pip { position: absolute; z-index: 4; left: 14px; bottom: 14px; width: clamp(150px, 22vw, 300px); aspect-ratio: 16 / 9; border-radius: 18px;
+  overflow: hidden; border: 3px solid rgba(255, 255, 255, .5); background: #05080f; }
+.g-pip video, .g-pip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#gvideo { object-fit: cover; transform: scaleX(-1); }
+@media (max-width: 520px) { .g-hint { top: 88px; padding-right: 16px; } .g-pip { width: 130px; } }

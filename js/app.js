@@ -1,16 +1,18 @@
 import { EXERCISES, PROGRAMS, byId } from './catalog.js';
 import { Tracker } from './engine.js';
 import { figureSVG, lerpPose, synth } from './figure.js';
+import { LEVELS, RunnerGame, Bot, inputFromPose } from './runner.js';
+import { drawScene } from './runnerView.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const KID_COLORS = ['#2fe0c2', '#ffc93c', '#ff7a59', '#8fa8ff', '#f58bd0', '#6dffa8'];
 
 // ---------------------------------------------------------------- storage
-const KEY = 'starmoves.v1';
+const KEY = 'kidfit.v1', OLD_KEY = 'starmoves.v1'; // OLD_KEY: saves from before the rename
 let store = { kids: [{ id: 1, name: 'Player 1', stars: 0, sessions: 0 }], current: 1, voice: true };
 try {
-  const s = JSON.parse(localStorage.getItem(KEY));
+  const s = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY));
   if (s && Array.isArray(s.kids) && s.kids.length) store = s;
 } catch { /* storage unavailable: play without saving */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch { /* ignore */ } };
@@ -31,6 +33,16 @@ function ding(i = 0) {
     o.start(t); o.stop(t + 0.32);
   } catch { /* no audio */ }
 }
+function thud() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), gn = actx.createGain(), t = actx.currentTime;
+    o.type = 'sine'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.2);
+    gn.gain.setValueAtTime(0.3, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    o.connect(gn).connect(actx.destination); o.start(t); o.stop(t + 0.26);
+  } catch { /* no audio */ }
+}
+
 // Speech uses the voices installed on this computer. Pick the most natural-sounding one
 // available; the home screen lets a grown-up override the choice.
 const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Kathy|Ralph|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/;
@@ -78,6 +90,7 @@ if ('speechSynthesis' in window) {
 
 // ---------------------------------------------------------------- home
 let tab = 'programs';
+const lastPlay = { game: null }; // set when a game is started, cleared when a session is started
 const amount = (ex) => (ex.kind === 'hold' ? `Hold ${ex.holdSec}s × ${ex.reps}` : `${ex.reps} reps`);
 const minutes = (p) => Math.max(1, Math.round(p.steps.reduce((s, id) => {
   const ex = byId[id];
@@ -85,7 +98,7 @@ const minutes = (p) => Math.max(1, Math.round(p.steps.reduce((s, id) => {
 }, 0) / 60));
 
 function show(id) {
-  for (const s of ['home', 'detail', 'session', 'summary']) $(s).hidden = s !== id;
+  for (const s of ['home', 'detail', 'session', 'game', 'summary']) $(s).hidden = s !== id;
   window.scrollTo(0, 0);
 }
 
@@ -99,7 +112,11 @@ function renderKids() {
 
 function renderGrid() {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  $('grid').innerHTML = tab === 'programs'
+  $('grid').innerHTML = tab === 'games'
+    ? LEVELS.map((l) => `<button class="card prog game" style="--h:${l.hue}" data-game="${l.id}">
+        <div class="emoji big">${l.emoji}</div><h3>Road Run: ${esc(l.name)}</h3><p>${esc(l.blurb)}</p>
+        <span class="tag">${l.moves.length} moves · about 1 min</span></button>`).join('')
+    : tab === 'programs'
     ? PROGRAMS.map((p) => `<button class="card prog" style="--h:${p.hue}" data-prog="${p.id}">
         <div class="emoji">${p.emoji}</div><h3>${esc(p.name)}</h3><p>${esc(p.blurb)}</p>
         <span class="tag">${p.steps.length} moves · about ${minutes(p)} min</span></button>`).join('')
@@ -140,8 +157,10 @@ document.addEventListener('click', (ev) => {
   else if (d.ex) startSession(byId[d.ex].name, [byId[d.ex]]);
   else if (d.start) { const p = PROGRAMS.find((x) => x.id === d.start); startSession(p.name, p.steps.map((id) => byId[id])); }
   else if ('back' in d || 'home' in d) renderHome();
-  else if ('again' in d) startSession(S.title, S.list);
+  else if (d.game) startGame(d.game);
+  else if ('again' in d) (lastPlay.game ? startGame(lastPlay.game) : startSession(S.title, S.list));
   else if ('sim' in d) { forceSim = true; S.sim = true; $('video').hidden = true; beginExercise(0); }
+  else if ('gsim' in d) { forceSim = true; S.sim = true; $('gvideo').hidden = true; beginGame(); }
 });
 $('kidDlg').addEventListener('close', () => {
   const name = $('kidName').value.trim();
@@ -157,7 +176,7 @@ $('simBtn').onclick = () => { forceSim = true; $('simBtn').textContent = 'Demo m
 // ---------------------------------------------------------------- camera + pose model
 let forceSim = new URLSearchParams(location.search).has('sim');
 let landmarker = null, stream = null, lastVideoTime = -1;
-const video = $('video');
+let video = $('video'); // the game screen has its own <video>
 
 async function loadModel() {
   if (landmarker) return;
@@ -176,6 +195,18 @@ async function startCamera() {
   stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   video.srcObject = stream;
   await video.play();
+}
+// Opens the model and camera. Returns null on success, or an error message for the screen.
+async function initCamera() {
+  try {
+    await Promise.all([loadModel(), startCamera()]);
+    S.aspect = video.videoWidth / video.videoHeight || 16 / 9;
+    return null;
+  } catch (err) {
+    stopCamera();
+    return err?.name === 'NotAllowedError' ? 'Camera permission was blocked. Allow the camera for this page, then try again.'
+      : err?.name === 'NotFoundError' ? 'No camera was found on this device.' : `The camera could not start${err?.message ? ` (${err.message})` : ''}.`;
+  }
 }
 function stopCamera() {
   stream?.getTracks().forEach((t) => t.stop());
@@ -197,6 +228,7 @@ function message(html, clear = false) {
 }
 
 async function startSession(title, list) {
+  GM.running = false; lastPlay.game = null; video = $('video'); lastVideoTime = -1;
   Object.assign(S, { running: true, title, list, idx: 0, results: [], phase: 'loading', sim: forceSim, aspect: 16 / 9, lm: null, smooth: null });
   show('session');
   $('voiceBtn').classList.toggle('off', !store.voice);
@@ -206,15 +238,10 @@ async function startSession(title, list) {
   say(' '); // unlock speech on the click that started the session
   requestAnimationFrame(frame);
   if (!S.sim) {
-    try {
-      await Promise.all([loadModel(), startCamera()]);
-      S.aspect = video.videoWidth / video.videoHeight || 16 / 9;
-    } catch (err) {
-      if (!S.running) return;
-      stopCamera();
+    const why = await initCamera();
+    if (!S.running) { stopCamera(); return; }
+    if (why) {
       S.phase = 'error';
-      const why = err?.name === 'NotAllowedError' ? 'Camera permission was blocked. Allow the camera for this page, then try again.'
-        : err?.name === 'NotFoundError' ? 'No camera was found on this device.' : `The camera could not start${err?.message ? ` (${err.message})` : ''}.`;
       message(`<div class="mid">Camera problem</div><div class="sub">${esc(why)}</div><button class="primary" data-sim>Play in demo mode</button>`);
       return;
     }
@@ -261,6 +288,26 @@ function onRep(stars) {
   else say(String(n));
 }
 
+function renderSummary({ heading, avg, line, rows }) {
+  $('summary').innerHTML = `
+    <div class="sum-card">
+      <button class="bigbtn home" data-home aria-label="Home">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 8 48h12v38h22V62h16v24h22V48h12z" fill="currentColor" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/></svg>
+        <span>Home</span>
+      </button>
+      <div class="sum-mid">
+        <h2>${esc(heading)}</h2>
+        <div class="bigstars">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= Math.round(avg) ? 'on' : ''}">★</span>`).join('')}</div>
+        <div class="count">${line}</div>
+      </div>
+      <button class="bigbtn again" data-again aria-label="Play again">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 18a32 32 0 1 1-30.4 22" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"/><path d="M52 2v32L30 18z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/></svg>
+        <span>Again</span>
+      </button>
+    </div>
+    <ol class="steps">${rows}</ol>`;
+}
+
 function endSession(toSummary) {
   S.running = false;
   stopCamera();
@@ -273,24 +320,12 @@ function endSession(toSummary) {
   const k = kid();
   k.stars += total; k.sessions += 1; save();
   const row = (n) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? '★' : '<u>★</u>')).join('');
-  $('summary').innerHTML = `
-    <div class="sum-card">
-      <button class="bigbtn home" data-home aria-label="Home">
-        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 8 48h12v38h22V62h16v24h22V48h12z" fill="currentColor" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/></svg>
-        <span>Home</span>
-      </button>
-      <div class="sum-mid">
-        <h2>${reps ? `Way to go, ${esc(k.name)}!` : 'All done!'}</h2>
-        <div class="bigstars">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= Math.round(avg) ? 'on' : ''}">★</span>`).join('')}</div>
-        <div class="count">${reps ? `You earned <span class="star">★ ${total}</span> out of ${reps * 5} in ${esc(S.title)}` : `No stars this time in ${esc(S.title)}`}</div>
-      </div>
-      <button class="bigbtn again" data-again aria-label="Play again">
-        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 18a32 32 0 1 1-30.4 22" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"/><path d="M52 2v32L30 18z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/></svg>
-        <span>Again</span>
-      </button>
-    </div>
-    <ol class="steps">${S.results.map((r, i) => `<li><i>${i + 1}</i><b>${r.ex.emoji} ${esc(r.ex.name)}</b>
-      <span class="st">${r.stars.length ? row(r.stars.reduce((a, b) => a + b, 0) / r.stars.length) : '<small>skipped</small>'}</span></li>`).join('')}</ol>`;
+  renderSummary({
+    heading: reps ? `Way to go, ${k.name}!` : 'All done!', avg,
+    line: reps ? `You earned <span class="star">★ ${total}</span> out of ${reps * 5} in ${esc(S.title)}` : `No stars this time in ${esc(S.title)}`,
+    rows: S.results.map((r, i) => `<li><i>${i + 1}</i><b>${r.ex.emoji} ${esc(r.ex.name)}</b>
+      <span class="st">${r.stars.length ? row(r.stars.reduce((a, b) => a + b, 0) / r.stars.length) : '<small>skipped</small>'}</span></li>`).join(''),
+  });
   show('summary');
   if (reps) { say(`All done! You earned ${total} stars!`); for (let i = 0; i < 5; i++) ding(i); }
 }
@@ -327,7 +362,7 @@ function simPose(now) {
 }
 
 function readPose(now) {
-  if (S.sim) { const lm = synth(simPose(now), S.aspect); return { p: lm, w: lm }; }
+  if (S.sim) { const lm = synth(GM.running ? GM.simPose : simPose(now), S.aspect); return { p: lm, w: lm }; }
   if (!landmarker || video.readyState < 2) return null;
   if (video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
@@ -469,6 +504,159 @@ function frame(now) {
   $('coachFig').innerHTML = figureSVG(lerpPose(ex.demo.rest, T[which], a));
 
   draw(pose, prog, ok);
+}
+
+// ---------------------------------------------------------------- game: road run
+const GM = { running: false, simPose: {} };
+const gcv = $('gcv'), gg = gcv.getContext('2d'), gover = $('gover'), gpg = gover.getContext('2d');
+const HINT_POSE = { left: { lean: -24, armL: 25, armR: 25 }, right: { lean: 24, armL: 25, armR: 25 }, jump: { lift: 0.08, armL: 40, armR: 40 },
+  duck: { legL: 65, legR: 65, shinL: -15, shinR: -15, armL: 70, armR: 70 }, reach: { armL: 172, armR: 172 } };
+const HINT_TEXT = { jump: ['⬆️', 'Jump!', 'Jump!'], duck: ['⬇️', 'Squat down!', 'Squat down!'], reach: ['🙌', 'Reach up!', 'Reach up!'] };
+
+function gmessage(html, clear = false) {
+  const m = $('gMsg');
+  if (html == null) { m.hidden = true; return; }
+  if (m.dataset.html !== html) { m.innerHTML = html; m.dataset.html = html; }
+  m.classList.toggle('clear', clear);
+  m.hidden = false;
+}
+
+async function startGame(id) {
+  const level = LEVELS.find((l) => l.id === id);
+  lastPlay.game = id;
+  S.running = false;
+  Object.assign(GM, { running: true, level, game: new RunnerGame(level), bot: new Bot(), ctx: { dt: 0 }, phase: 'loading', simPose: {},
+    tPhase: performance.now(), seen: 0, lost: 0, tFrame: 0, hintKey: null, sayAt: 0 });
+  Object.assign(S, { sim: forceSim, aspect: 16 / 9, lm: null, smooth: null, game: true });
+  video = $('gvideo'); lastVideoTime = -1;
+  video.hidden = S.sim;
+  show('game');
+  $('gEmoji').textContent = level.emoji; $('gName').textContent = level.name; $('gStars').textContent = '0';
+  $('gProg').style.width = '0'; $('gHint').hidden = true;
+  $('gVoice').classList.toggle('off', !store.voice);
+  gmessage('<div class="mid">Waking up the camera…</div><div class="sub">Say yes if your browser asks to use the camera.</div>');
+  say(' ');
+  requestAnimationFrame(gframe);
+  if (!S.sim) {
+    const why = await initCamera();
+    if (!GM.running) { stopCamera(); return; }
+    if (why) {
+      GM.phase = 'error';
+      gmessage(`<div class="mid">Camera problem</div><div class="sub">${esc(why)}</div><button class="primary" data-gsim>Play in demo mode</button>`);
+      return;
+    }
+  }
+  beginGame();
+}
+
+function beginGame() {
+  if (!GM.running) return;
+  $('gPip').style.aspectRatio = String(S.aspect);
+  GM.phase = 'intro'; GM.tPhase = performance.now(); GM.seen = 0;
+  say(`${GM.level.name}! Lean to dodge, jump over hurdles, squat under beams and reach for balloons!`);
+}
+
+function endGame(toSummary) {
+  GM.running = false; S.game = false;
+  stopCamera();
+  try { speechSynthesis.cancel(); } catch { /* ignore */ }
+  if (!toSummary) return renderHome();
+  const r = GM.game.result(), k = kid();
+  k.stars += r.collected; k.sessions += 1; save();
+  renderSummary({
+    heading: `Great run, ${k.name}!`, avg: r.rating,
+    line: `You collected <span class="star">★ ${r.collected}</span> of ${r.total} in ${esc(GM.level.name)}`,
+    rows: `<li><i>⭐</i><b>Stars collected</b><span class="st">${r.collected} / ${r.total}</span></li>
+           <li><i>💥</i><b>Bumps</b><span class="st">${r.bumps}</span></li>`,
+  });
+  show('summary');
+  say(`Great run! You collected ${r.collected} stars!`);
+  for (let i = 0; i < 5; i++) ding(i);
+}
+
+$('gExit').onclick = () => endGame(false);
+$('gVoice').onclick = () => {
+  store.voice = !store.voice; save();
+  $('gVoice').classList.toggle('off', !store.voice);
+  if (!store.voice) { try { speechSynthesis.cancel(); } catch { /* ignore */ } }
+};
+
+function drawPip(pose) {
+  const el = $('gPip'), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.round(el.clientWidth * dpr), H = Math.round(el.clientHeight * dpr);
+  if (gover.width !== W || gover.height !== H) { gover.width = W; gover.height = H; }
+  gpg.clearRect(0, 0, W, H);
+  if (S.sim) { gpg.fillStyle = '#0d1528'; gpg.fillRect(0, 0, W, H); }
+  if (!pose) return;
+  const p = pose.p, X = (i) => (p[i].x / S.aspect) * W, Y = (i) => p[i].y * H, vis = (i) => p[i].v > 0.4;
+  gpg.lineCap = 'round'; gpg.strokeStyle = '#2fe0c2'; gpg.lineWidth = Math.max(2, H * 0.025);
+  gpg.beginPath();
+  for (const [a, b] of BONES) if (vis(a) && vis(b)) { gpg.moveTo(X(a), Y(a)); gpg.lineTo(X(b), Y(b)); }
+  gpg.stroke();
+  gpg.fillStyle = '#fff';
+  for (const i of JOINTS) if (vis(i)) { gpg.beginPath(); gpg.arc(X(i), Y(i), Math.max(2, H * 0.03), 0, 7); gpg.fill(); }
+}
+
+function showHint(h, playing) {
+  const el = $('gHint');
+  if (!h || !playing) { el.hidden = true; return; }
+  const key = h.kind === 'lean' ? (h.dir < 0 ? 'left' : 'right') : h.kind;
+  const label = key === 'left' ? ['⬅️', 'Lean left!'] : key === 'right' ? ['➡️', 'Lean right!'] : HINT_TEXT[key];
+  const html = `${figureSVG(HINT_POSE[key])}<span>${label[0]} ${label[1]}</span>`;
+  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+  el.classList.toggle('now', h.tta < 1.1);
+  el.hidden = false;
+  if (GM.hintKey !== `${key}${h.at}`) { // speak each new cue once
+    GM.hintKey = `${key}${h.at}`;
+    if (performance.now() - GM.sayAt > 1500) { GM.sayAt = performance.now(); say(label[1].replace('!', ''), true); }
+  }
+}
+
+function gframe(now) {
+  if (!GM.running) return;
+  requestAnimationFrame(gframe);
+  const G = GM.game, dt = Math.min(0.1, Math.max(0, (now - (GM.tFrame || now)) / 1000));
+  GM.tFrame = now;
+  if (S.sim) GM.simPose = GM.bot.step(G, dt, GM.phase === 'play');
+  let pose = null;
+  try { pose = readPose(now); } catch (e) { console.error(e); }
+  const ok = !!pose && NEED_FULL.every((i) => pose.p[i].v > 0.5);
+  GM.seen = ok ? GM.seen + dt * 1000 : 0;
+  GM.lost = ok ? 0 : GM.lost + dt * 1000;
+  const since = now - GM.tPhase, fit = 'Step back until I can see you from head to toes!';
+
+  if (GM.phase === 'intro') {
+    gmessage(`<div class="mid">${GM.level.emoji} ${esc(GM.level.name)}</div><div class="sub">${GM.seen > 0 ? 'Get ready to run!' : fit}</div>`);
+    if (since > 3500 && GM.seen > 600) { GM.phase = 'count'; GM.tPhase = now; GM.n = 0; }
+  } else if (GM.phase === 'count') {
+    const n = 3 - Math.floor(since / 800);
+    if (n >= 1) { gmessage(`<div class="big">${n}</div>`); if (n !== GM.n) { GM.n = n; ding(0); } }
+    else { GM.phase = 'play'; GM.tPhase = now; gmessage(null); ding(4); say('Run!'); }
+  } else if (GM.phase === 'play') {
+    if (ok) {
+      GM.ctx.dt = dt;
+      G.update(dt, inputFromPose(pose.p, pose.w, GM.ctx));
+    }
+    for (const e of G.events.splice(0)) { if (e === 'star') ding(Math.min(4, 2 + (G.stars % 3))); else if (e === 'bump') thud(); }
+    if (GM.lost > 1200) gmessage(`<div class="mid">I can't see you!</div><div class="sub">${fit}</div>`);
+    else gmessage(null);
+    if (G.done) { GM.phase = 'done'; GM.tPhase = now; say('You made it to the finish!'); }
+  } else if (GM.phase === 'done') {
+    gmessage(`<div class="mid">🏁 Finish!</div><div class="big star">★ ${G.stars}</div>`);
+    if (since > 2600) { endGame(true); return; }
+  }
+
+  // HUD
+  $('gStars').textContent = G.stars;
+  $('gProg').style.width = `${Math.round(Math.min(1, G.pos / G.end) * 100)}%`;
+  showHint(GM.phase === 'play' && ok ? G.hint() : null, GM.phase === 'play' && ok);
+
+  // scene
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.round(gcv.clientWidth * dpr), H = Math.round(gcv.clientHeight * dpr);
+  if (gcv.width !== W || gcv.height !== H) { gcv.width = W; gcv.height = H; }
+  drawScene(gg, W, H, G, now);
+  drawPip(pose);
 }
 
 renderHome();

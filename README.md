@@ -1,6 +1,6 @@
-# StarMoves
+# KidFit
 
-A camera-based exercise game for young children (built for ages 3–7). The child copies an animated
+A camera-based exercise game for young children (built for ages 3–7). Live at https://kidfit.pages.dev. The child copies an animated
 coach, the app tracks their body joints through the webcam, and every rep earns 1–5 stars.
 
 Everything runs in the browser on the device. The pose model and its runtime are stored in this
@@ -49,6 +49,25 @@ To get a more natural voice on a Mac: System Settings → Accessibility → Spok
 Manage Voices, download an English "Premium" or "Enhanced" voice (for example Ava or Zoe), then quit
 and reopen the browser and pick it in the "Coach voice" menu.
 
+## Road Run (game mode)
+
+Pick the **Games** tab. The child's avatar runs down a road and the child steers with their body:
+
+| Body move | In the game |
+|---|---|
+| Lean left / right | Change lane to dodge rocks, cones and crabs |
+| Jump | Hop over hurdles, and grab stars in the air |
+| Squat | Duck under high beams |
+| Reach up | Pop balloons for stars |
+
+Three levels add moves gradually: Sunny Road (lean, jump), Forest Run (adds squat) and Beach Dash
+(adds reach). A hint with a small coach figure shows the next move as an obstacle gets close, and the
+voice says it once. There are no lives: bumps cost points on the final rating, not the run. Each star
+collected goes to the player's total, and the end screen gives 1–5 stars (60% stars collected, 40% obstacles cleared).
+
+Code: `js/runner.js` (course, rules, pose-to-input mapping, demo player; no DOM) and `js/runnerView.js` (drawing).
+The demo mode plays Road Run too; `npm test` plays every level with a bot driven through the same pose pipeline.
+
 ## How scoring works
 
 Each exercise has a `measure()` function in `js/catalog.js` that turns the tracked joints into a
@@ -77,7 +96,9 @@ index.html, css/app.css     UI
 js/app.js                   camera, skeleton overlay, session flow, profiles
 js/catalog.js               exercises, programs, and their detectors
 js/engine.js                rep/hold tracking and star scoring
+js/runner.js, js/runnerView.js   Road Run game (rules + drawing)
 js/figure.js                stick-figure coach and synthetic poses
 models/, vendor/            MediaPipe Pose Landmarker model + runtime (Apache-2.0)
 test/engine.test.mjs        runs every detector against its own coach animation
+test/runner.test.mjs        plays every Road Run level with a bot
 ```

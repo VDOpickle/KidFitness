@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>StarMoves</title>
+<title>KidFit</title>
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
 <!-- ============ HOME ============ -->
 <main id="home" class="screen">
   <header class="top">
-    <div class="brand"><span class="brand-mark">★</span><span>StarMoves</span></div>
+    <div class="brand"><span class="brand-mark">★</span><span>KidFit</span></div>
     <div id="kids" class="kids"></div>
   </header>
 
@@ -25,6 +25,7 @@
 
   <nav class="tabs" role="tablist">
     <button data-tab="programs" class="on">Programs</button>
+    <button data-tab="games">Games</button>
     <button data-tab="workout">Workouts</button>
     <button data-tab="stretch">Stretches</button>
   </nav>
@@ -80,6 +81,20 @@
     </div>
     <div class="total"><span class="star">★</span><b id="totalStars">0</b><span class="dim">stars so far</span></div>
   </aside>
+</main>
+
+<!-- ============ GAME: ROAD RUN ============ -->
+<main id="game" class="screen" hidden>
+  <canvas id="gcv"></canvas>
+  <div class="g-top">
+    <div class="pill"><span id="gEmoji"></span><b id="gName"></b></div>
+    <div class="pill"><span class="star">★</span><b id="gStars">0</b></div>
+    <div class="hud-btns"><button id="gVoice" title="Voice on/off">🔊</button><button id="gExit" title="Exit">✕</button></div>
+  </div>
+  <div class="g-prog" aria-hidden="true"><i id="gProg"></i></div>
+  <div id="gHint" class="g-hint" hidden></div>
+  <div id="gMsg" class="msg" hidden></div>
+  <div id="gPip" class="g-pip"><video id="gvideo" playsinline muted></video><canvas id="gover"></canvas></div>
 </main>
 
 <!-- ============ SUMMARY ============ -->

@@ -67,6 +67,9 @@ const near = (v, target, inner, outer) => 1 - map(Math.abs(v - target), inner, o
 
 const ARMS = [11, 12, 13, 14, 15, 16], LEGS = [23, 24, 25, 26, 27, 28], ALL = [...ARMS, ...LEGS];
 
+// Reused by the Road Run game (js/runner.js).
+export { hop, lean, knee, raise, avg, map };
+
 const T = (targets) => ({ rest: {}, targets });
 
 export const EXERCISES = [

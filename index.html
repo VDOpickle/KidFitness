@@ -31,6 +31,10 @@
   <section id="grid" class="grid"></section>
 
   <footer class="foot">
+    <label class="voice-pick">Coach voice
+      <select id="voiceSel"></select>
+      <button id="voiceTest" class="ghost small" type="button">Test</button>
+    </label>
     <button id="simBtn" class="link">Try demo mode (no camera)</button>
     <span>Video never leaves this device. Grown-ups: please stay nearby and clear some floor space.</span>
   </footer>
@@ -42,6 +46,7 @@
 <!-- ============ SESSION ============ -->
 <main id="session" class="screen" hidden>
   <div class="stage">
+    <div id="segs" class="segs" aria-hidden="true"></div>
     <div id="stageInner" class="stage-inner">
       <video id="video" playsinline muted></video>
       <canvas id="overlay"></canvas>
@@ -56,6 +61,7 @@
       </div>
 
       <div class="power"><div id="powerFill"></div><span>POWER</span></div>
+      <div class="power meter"><div id="meterFill"></div><b id="meterNum">0</b><span id="meterLabel">REPS</span></div>
 
       <div id="msg" class="msg" hidden></div>
       <div id="burst" class="burst" hidden></div>
@@ -69,11 +75,8 @@
       <p id="cue" class="cue"></p>
     </div>
     <div class="counter">
-      <div id="ring" class="ring"><div><b id="repNow">0</b><span id="repOf">of 5</span></div></div>
-      <div>
-        <div class="label" id="repLabel">Reps</div>
-        <div id="pips" class="pips"></div>
-      </div>
+      <div class="label" id="repLabel">Reps</div>
+      <div id="pips" class="pips"></div>
     </div>
     <div class="total"><span class="star">★</span><b id="totalStars">0</b><span class="dim">stars so far</span></div>
   </aside>

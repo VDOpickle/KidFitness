@@ -22,16 +22,32 @@ screen) to watch the app play itself without a camera.
 
 ## What is in it
 
-- **Workouts** (14, rep counting): Frog Squats, Star Jumps, Reach for the Sky, Marching Band, Windy Tree,
+- **Workouts** (22, rep counting): Frog Squats, Star Jumps, Reach for the Sky, Marching Band, Windy Tree,
   Touch Your Toes, Elbow to Knee, Bunny Hops, Clap the Sky, Side Kicks, Pick Apples, Speedy Feet,
-  Flap Your Wings, Show Your Muscles.
-- **Stretches** (14, timed holds): Giraffe Stretch, Rainbow Bend, Rag Doll, Airplane Arms, Starfish,
+  Flap Your Wings, Show Your Muscles, Plié Bends, Tippy-Toe Rises, Point Your Toes, Ballerina Arms,
+  Curtsy, Twirl, Straight Jumps, Side Lunges.
+- **Stretches** (18, timed holds): Giraffe Stretch, Rainbow Bend, Rag Doll, Airplane Arms, Starfish,
   Flamingo Stand, Big Bear Hug, Cactus Arms, Sleepy Owl, Invisible Chair, Tree Pose, Rocket Ship,
-  Chicken Wings, Giant Steps.
-- **Programs** (6, 10–15 moves each): Sunny Morning Wake-Up, Jungle Adventure, Superhero Training,
-  Wiggle Break, Calm Down Stretch, Ocean Explorers.
+  Chicken Wings, Giant Steps, Ballerina Crown, Passé Balance, Straddle Reach, Ta-Da Finish.
+- **Programs** (10, 10–15 moves each): Ballet Class, Tiny Dancer Warm-Up, Gymnastics Stars, Gym Warm-Up,
+  Sunny Morning Wake-Up, Jungle Adventure, Superhero Training, Wiggle Break, Calm Down Stretch,
+  Ocean Explorers.
 - Player profiles with star totals (saved in the browser's local storage), spoken instructions for
   children who cannot read yet, and sound effects.
+
+The ballet and gymnastics programs only use standing moves the camera can see from the front. Floor
+skills (rolls, bridges, cartwheels) are left out on purpose: they cannot be tracked reliably and
+should be taught in person.
+
+## Coach voice
+
+The coach speaks with the voices installed on the computer, so how human it sounds depends on which
+voices are installed. The app picks the best one it can find (Premium, then Natural, then Enhanced)
+and the "Coach voice" menu at the bottom of the home screen lets you choose another and test it.
+
+To get a more natural voice on a Mac: System Settings → Accessibility → Spoken Content → System Voice →
+Manage Voices, download an English "Premium" or "Enhanced" voice (for example Ava or Zoe), then quit
+and reopen the browser and pick it in the "Coach voice" menu.
 
 ## How scoring works
 

@@ -7,7 +7,7 @@
 // Landmark indices follow MediaPipe Pose.
 
 const L_EAR = 7, R_EAR = 8, L_SH = 11, R_SH = 12, L_EL = 13, R_EL = 14, L_WR = 15, R_WR = 16,
-  L_HIP = 23, R_HIP = 24, L_KN = 25, R_KN = 26, L_AN = 27, R_AN = 28;
+  L_HIP = 23, R_HIP = 24, L_KN = 25, R_KN = 26, L_AN = 27, R_AN = 28, L_TOE = 31, R_TOE = 32;
 
 const clamp = (v) => Math.min(1, Math.max(0, v));
 const map = (v, a, b) => clamp((v - a) / (b - a));
@@ -47,6 +47,22 @@ const reachDown = (p) => {
 };
 const footLift = (p) => Math.abs(p[L_AN].y - p[R_AN].y) / torso(p);
 const handsTogetherUp = (p, w) => Math.min(map(avg(raise, w), 40, 150), map(dist(p[L_WR], p[R_WR]) / shW(p), 2.0, 0.7));
+// Feet leaving the floor. The floor line follows the feet down quickly and drifts up slowly.
+const hop = (p, ctx) => {
+  const ay = (p[L_AN].y + p[R_AN].y) / 2;
+  if (ctx.base == null) ctx.base = ay;
+  ctx.base += (ay - ctx.base) * (1 - Math.exp(-ctx.dt / (ay > ctx.base ? 0.15 : 4)));
+  return map((ctx.base - ay) / torso(p), 0.06, 0.25);
+};
+// Rising onto tiptoes: hips get further from the toes than they are when standing flat.
+const tiptoe = (p, ctx) => {
+  const d = ((p[L_TOE].y + p[R_TOE].y) / 2 - (p[L_HIP].y + p[R_HIP].y) / 2) / torso(p);
+  if (ctx.stand == null) ctx.stand = d;
+  // Only learn the "standing flat" height while the child is standing still.
+  ctx.stand += (d - ctx.stand) * (1 - Math.exp(-ctx.dt / (Math.abs(d - ctx.stand) < 0.03 ? 1 : 12)));
+  return map(d - ctx.stand, 0.04, 0.11);
+};
+const wristGap = (p) => dist(p[L_WR], p[R_WR]) / shW(p);
 const near = (v, target, inner, outer) => 1 - map(Math.abs(v - target), inner, outer);
 
 const ARMS = [11, 12, 13, 14, 15, 16], LEGS = [23, 24, 25, 26, 27, 28], ALL = [...ARMS, ...LEGS];
@@ -100,14 +116,7 @@ export const EXERCISES = [
   { id: 'hops', cat: 'workout', kind: 'rep', reps: 6, name: 'Bunny Hops', emoji: '🐰',
     cue: 'Hop up and down like a bunny!', tip: 'Jump a little higher!',
     focus: [27, 28],
-    measure: (p, w, ctx) => {
-      const ay = (p[L_AN].y + p[R_AN].y) / 2;
-      if (ctx.base == null) ctx.base = ay;
-      // Floor line: follows the feet down quickly, drifts up slowly.
-      const tau = ay > ctx.base ? 0.15 : 4;
-      ctx.base += (ay - ctx.base) * (1 - Math.exp(-ctx.dt / tau));
-      return map((ctx.base - ay) / torso(p), 0.06, 0.25);
-    },
+    measure: (p, w, ctx) => hop(p, ctx),
     demo: T([{ lift: 0.09, armL: 30, armR: 30 }]) },
 
   { id: 'clapSky', cat: 'workout', kind: 'rep', reps: 6, name: 'Clap the Sky', emoji: '👏',
@@ -238,11 +247,92 @@ export const EXERCISES = [
     focus: LEGS,
     measure: (p) => map(stance(p), 1.3, 2.1),
     demo: T([{ legL: 28, legR: 28, armL: 35, armR: 35, foreL: -30, foreR: -30 }]) },
+  // ---------- Ballet ----------
+  { id: 'plie', cat: 'workout', kind: 'rep', reps: 5, name: 'Plié Bends', emoji: '🩰',
+    cue: 'Heels together, toes apart. Bend your knees out like a diamond, then stand tall!', tip: 'Bend your knees out a little more!',
+    focus: [23, 24, 25, 26],
+    measure: (p, w) => map(avg(knee, w), 165, 125),
+    demo: { rest: { armL: 30, armR: 30, foreL: -15, foreR: -15 }, targets: [{ legL: 50, legR: 50, shinL: -10, shinR: -10, armL: 30, armR: 30, foreL: -15, foreR: -15 }] } },
+
+  { id: 'releve', cat: 'workout', kind: 'rep', reps: 6, name: 'Tippy-Toe Rises', emoji: '👟',
+    cue: 'Rise up tall on your tippy toes, then come down softly!', tip: 'Lift your heels up higher!',
+    focus: [27, 28, 31, 32], need: [11, 12, 23, 24, 27, 28, 31, 32],
+    measure: (p, w, ctx) => tiptoe(p, ctx),
+    demo: { rest: { armL: 30, armR: 30, foreL: -15, foreR: -15 }, targets: [{ rise: 1, armL: 30, armR: 30, foreL: -15, foreR: -15 }] } },
+
+  { id: 'tendu', cat: 'workout', kind: 'rep', reps: 6, name: 'Point Your Toes', emoji: '🦶',
+    cue: 'Slide one foot out to the side and point your toes. Then the other foot!', tip: 'Slide your foot out a bit further!',
+    focus: LEGS,
+    measure: (p) => Math.max(map(legOut(p, 0), 8, 24), map(legOut(p, 1), 8, 24)),
+    demo: { rest: { armL: 80, armR: 80 }, targets: [{ legL: 27, armL: 80, armR: 80 }, { legR: 27, armL: 80, armR: 80 }] } },
+
+  { id: 'portDeBras', cat: 'workout', kind: 'rep', reps: 4, name: 'Ballerina Arms', emoji: '🦢',
+    cue: 'Float your arms slowly up over your head, then float them down!', tip: 'Float your arms all the way up!',
+    focus: ARMS, upper: true,
+    measure: (p, w) => map(avg(raise, w), 40, 150),
+    demo: { rest: { armL: 25, armR: 25, foreL: -20, foreR: -20 }, targets: [{ armL: 150, armR: 150, foreL: 230, foreR: 230 }] } },
+
+  { id: 'curtsy', cat: 'workout', kind: 'rep', reps: 4, name: 'Curtsy', emoji: '👑',
+    cue: 'Arms out, bend your knees and take a little bow!', tip: 'Arms out and bend your knees!',
+    focus: [13, 14, 25, 26],
+    measure: (p, w) => Math.min(map(avg(knee, w), 165, 135), map(avg(raise, w), 20, 50)),
+    demo: T([{ legL: 35, shinL: -25, legR: 25, shinR: -35, armL: 60, armR: 60 }]) },
+
+  { id: 'twirl', cat: 'workout', kind: 'rep', reps: 4, name: 'Twirl', emoji: '🌀',
+    cue: 'Turn around slowly on the spot like a music box dancer!', tip: 'Turn all the way around, nice and slow!',
+    focus: [11, 12, 23, 24], need: [],
+    measure: (p) => map(shW(p) / torso(p), 0.5, 0.2),
+    demo: { rest: { armL: 35, armR: 35, foreL: -30, foreR: -30 }, targets: [{ turn: 1, armL: 35, armR: 35, foreL: -30, foreR: -30 }] } },
+
+  { id: 'crown', cat: 'stretch', kind: 'hold', reps: 2, holdSec: 5, name: 'Ballerina Crown', emoji: '💎',
+    cue: 'Make a round crown with your arms over your head and hold!', tip: 'Bring your hands close together up high!',
+    focus: ARMS, upper: true,
+    measure: handsTogetherUp,
+    demo: T([{ armL: 150, armR: 150, foreL: 230, foreR: 230 }]) },
+
+  { id: 'passe', cat: 'stretch', kind: 'hold', reps: 2, holdSec: 4, name: 'Passé Balance', emoji: '🩰',
+    cue: 'Arms out wide. Slide one foot up to your knee and balance! Then switch.', tip: 'Arms out, foot up to your knee!',
+    focus: ALL,
+    measure: (p, w) => Math.min(map(footLift(p), 0.1, 0.35), map(avg(raise, w), 40, 75)),
+    demo: T([{ legL: 60, shinL: -55, armL: 85, armR: 85 }, { legR: 60, shinR: -55, armL: 85, armR: 85 }]) },
+
+  // ---------- Gymnastics ----------
+  { id: 'rocketJump', cat: 'workout', kind: 'rep', reps: 5, name: 'Straight Jumps', emoji: '🚀',
+    cue: 'Arms up by your ears. Jump up straight like a pencil and land softly!', tip: 'Keep your arms up and jump!',
+    focus: [15, 16, 27, 28],
+    measure: (p, w, ctx) => Math.min(hop(p, ctx), map(avg(raise, w), 60, 140)),
+    demo: { rest: { armL: 172, armR: 172 }, targets: [{ lift: 0.09, armL: 172, armR: 172 }] } },
+
+  { id: 'sideLunge', cat: 'workout', kind: 'rep', reps: 6, name: 'Side Lunges', emoji: '🤺',
+    cue: 'Feet wide. Bend one knee and lean that way, then the other!', tip: 'Feet wider, and bend one knee!',
+    focus: LEGS,
+    measure: (p, w) => Math.min(map(stance(p), 1.3, 1.9), map(Math.abs(knee(w, 0) - knee(w, 1)), 10, 40)),
+    demo: T([{ legL: 55, shinL: -10, legR: 38, armL: 50, armR: 50 }, { legR: 55, shinR: -10, legL: 38, armL: 50, armR: 50 }]) },
+
+  { id: 'straddleReach', cat: 'stretch', kind: 'hold', reps: 2, holdSec: 5, name: 'Straddle Reach', emoji: '🤸',
+    cue: 'Feet wide apart. Fold forward and reach your hands to the floor!', tip: 'Feet wide, and reach down lower!',
+    focus: [15, 16, 27, 28],
+    measure: (p) => Math.min(map(stance(p), 1.3, 1.9), map(reachDown(p), 0.3, 0.7)),
+    demo: T([{ legL: 28, legR: 28, fold: 1, armL: 4, armR: 4 }]) },
+
+  { id: 'tada', cat: 'stretch', kind: 'hold', reps: 2, holdSec: 3, name: 'Ta-Da Finish', emoji: '🏅',
+    cue: 'Stand tall, arms up in a big V. Ta-da! Hold your finish!', tip: 'Arms up high in a big V!',
+    focus: ARMS, upper: true,
+    measure: (p, w) => Math.min(map(avg(raise, w), 60, 140), map(wristGap(p), 1.0, 2.0)),
+    demo: T([{ armL: 150, armR: 150 }]) },
 ];
 
 export const byId = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));
 
 export const PROGRAMS = [
+  { id: 'ballet', name: 'Ballet Class', emoji: '🩰', hue: 325, blurb: 'Pliés, points, balances and a twirl.',
+    steps: ['portDeBras', 'plie', 'releve', 'tendu', 'airplane', 'crown', 'passe', 'hops', 'rainbow', 'sideKick', 'twirl', 'curtsy'] },
+  { id: 'dancer', name: 'Tiny Dancer Warm-Up', emoji: '🦢', hue: 290, blurb: 'A soft, slow start for little dancers.',
+    steps: ['giraffe', 'owl', 'portDeBras', 'plie', 'tendu', 'rainbow', 'releve', 'crown', 'bigHug', 'curtsy'] },
+  { id: 'gym', name: 'Gymnastics Stars', emoji: '🤸', hue: 15, blurb: 'Shapes, jumps, balances and a big finish.',
+    steps: ['giraffe', 'starfish', 'giant', 'straddleReach', 'toeTouch', 'sideLunge', 'squat', 'rocketJump', 'jacks', 'flamingo', 'tree', 'chair', 'tada'] },
+  { id: 'gymwarm', name: 'Gym Warm-Up', emoji: '🏅', hue: 205, blurb: 'Get every part ready to tumble.',
+    steps: ['march', 'armRaise', 'sideBend', 'speedyFeet', 'crossCrawl', 'sideLunge', 'ragDoll', 'hops', 'airplane', 'tada'] },
   { id: 'sunny', name: 'Sunny Morning Wake-Up', emoji: '🌞', hue: 38, blurb: 'Gentle moves to start the day.',
     steps: ['giraffe', 'owl', 'airplane', 'wings', 'rainbow', 'ragDoll', 'march', 'starfish', 'bigHug', 'rocket'] },
   { id: 'jungle', name: 'Jungle Adventure', emoji: '🦁', hue: 140, blurb: 'Move like the animals!',

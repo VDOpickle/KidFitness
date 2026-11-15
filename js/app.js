@@ -31,14 +31,49 @@ function ding(i = 0) {
     o.start(t); o.stop(t + 0.32);
   } catch { /* no audio */ }
 }
-function say(text, interrupt = true) {
-  if (!store.voice || !('speechSynthesis' in window)) return;
+// Speech uses the voices installed on this computer. Pick the most natural-sounding one
+// available; the home screen lets a grown-up override the choice.
+const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Kathy|Ralph|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/;
+function voiceScore(v) {
+  const n = v.name;
+  let s = 0;
+  if (/premium/i.test(n)) s += 50;
+  if (/natural|neural/i.test(n)) s += 45;
+  if (/enhanced/i.test(n)) s += 40;
+  if (/^Google (US|UK) English/.test(n)) s += 30;
+  if (/^(Samantha|Ava|Allison|Zoe|Evan|Nicky|Karen|Serena|Daniel|Moira|Tessa)\b/.test(n)) s += 10;
+  if (/en[-_]US/i.test(v.lang)) s += 3;
+  if (NOVELTY.test(n)) s -= 40;
+  return s;
+}
+function englishVoices() {
+  try {
+    return speechSynthesis.getVoices().filter((v) => /^en/i.test(v.lang)).sort((a, b) => voiceScore(b) - voiceScore(a));
+  } catch { return []; }
+}
+function pickVoice() {
+  const list = englishVoices();
+  return list.find((v) => v.name === store.voiceName) || list[0] || null;
+}
+function renderVoices() {
+  const sel = $('voiceSel'), list = englishVoices();
+  const auto = list[0] ? `Automatic (${list[0].name})` : 'Automatic';
+  sel.innerHTML = `<option value="">${esc(auto)}</option>` +
+    list.map((v) => `<option value="${esc(v.name)}" ${v.name === store.voiceName ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+}
+function say(text, interrupt = true, force = false) {
+  if ((!store.voice && !force) || !('speechSynthesis' in window)) return;
   try {
     if (interrupt) speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95; u.pitch = 1.15;
+    const v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = 0.92; u.pitch = 1; // natural voices sound best unaltered
     speechSynthesis.speak(u);
   } catch { /* no speech */ }
+}
+if ('speechSynthesis' in window) {
+  try { speechSynthesis.addEventListener('voiceschanged', renderVoices); } catch { /* ignore */ }
 }
 
 // ---------------------------------------------------------------- home
@@ -74,7 +109,7 @@ function renderGrid() {
 }
 
 function renderHome() {
-  renderKids(); renderGrid();
+  renderKids(); renderGrid(); renderVoices();
   $('heroFig').innerHTML = figureSVG({ armL: 150, armR: 150, legL: 25, legR: 25 });
   show('home');
 }
@@ -115,6 +150,8 @@ $('kidDlg').addEventListener('close', () => {
   store.kids.push({ id, name, stars: 0, sessions: 0 });
   store.current = id; save(); renderKids();
 });
+$('voiceSel').onchange = () => { store.voiceName = $('voiceSel').value || undefined; save(); };
+$('voiceTest').onclick = () => say('Hi! I am your coach. Reach up high like a giraffe. Great job!', true, true);
 $('simBtn').onclick = () => { forceSim = true; $('simBtn').textContent = 'Demo mode is on: pick something to play'; };
 
 // ---------------------------------------------------------------- camera + pose model
@@ -196,15 +233,14 @@ function beginExercise(i) {
   $('hudStep').textContent = S.list.length > 1 ? `${i + 1} / ${S.list.length}` : '';
   $('cue').textContent = ex.cue;
   $('repLabel').textContent = ex.kind === 'hold' ? `Hold for ${ex.holdSec} seconds` : 'Reps';
-  $('repOf').textContent = `of ${ex.reps}`;
   $('burst').hidden = true;
+  $('segs').innerHTML = S.list.map((_, k) => `<i class="${k < i && S.results[k]?.stars.length ? 'done' : ''}"></i>`).join('');
   renderReps();
   say(`${ex.name}. ${ex.cue}`);
 }
 
 function renderReps() {
   const r = S.tracker.reps, ex = S.ex;
-  $('repNow').textContent = r.length;
   $('pips').innerHTML = Array.from({ length: ex.reps }, (_, i) => (i < r.length ? `<i class="got">${r[i]}★</i>` : '<i>·</i>')).join('');
   $('totalStars').textContent = S.results.reduce((s, x) => s + x.stars.reduce((a, b) => a + b, 0), 0);
 }
@@ -276,6 +312,7 @@ function simPose(now) {
   } else {
     if (tr.state === 'cool' && S.simA > 0.9) S.simAmp = 0.8 + Math.random() * 0.25;
     S.simA += ((tr.state === 'cool' ? 0 : 1) - S.simA) * 0.08;
+    if (tr.state === 'rest' && S.simA > 0.97) S.simAmp = Math.min(1, S.simAmp + 0.004); // never get stuck short of a pose
   }
   return lerpPose(ex.demo.rest, tgt, S.simA * Math.min(1, S.simAmp));
 }
@@ -299,15 +336,18 @@ function readPose(now) {
   return S.lm;
 }
 
-const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
 const JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
 
 function draw(pose, prog, ok) {
   const box = $('stageInner'), stage = box.parentElement, dpr = Math.min(2, window.devicePixelRatio || 1);
   // Fit the camera frame inside the stage without cropping anyone's feet.
-  const bw = Math.floor(Math.min(stage.clientWidth, stage.clientHeight * S.aspect));
+  const bw = Math.floor(Math.min(stage.clientWidth, (stage.clientHeight - 18) * S.aspect)); // 18px = progress bars + gap
   const bh = Math.floor(bw / S.aspect);
-  if (box.clientWidth !== bw || box.clientHeight !== bh) { box.style.width = `${bw}px`; box.style.height = `${bh}px`; }
+  if (box.clientWidth !== bw || box.clientHeight !== bh) {
+    box.style.width = `${bw}px`; box.style.height = `${bh}px`;
+    $('segs').style.width = `${bw}px`;
+  }
   const W = Math.round(box.clientWidth * dpr), H = Math.round(box.clientHeight * dpr);
   if (overlay.width !== W || overlay.height !== H) { overlay.width = W; overlay.height = H; }
   g.clearRect(0, 0, W, H);
@@ -363,7 +403,7 @@ function frame(now) {
   const ex = S.ex, tr = S.tracker;
   let pose = null;
   try { pose = readPose(now); } catch (e) { console.error(e); }
-  const need = ex.upper ? NEED_UPPER : NEED_FULL;
+  const need = ex.need || (ex.upper ? NEED_UPPER : NEED_FULL);
   const ok = !!pose && need.every((i) => pose.p[i].v > 0.5);
   const dt = Math.min(100, now - (S.tFrame || now)); S.tFrame = now;
   S.seen = ok ? S.seen + dt : 0;
@@ -399,14 +439,18 @@ function frame(now) {
   // HUD
   const prog = S.phase === 'active' && ok ? tr.prog : 0;
   $('powerFill').style.height = `${Math.round(prog * 100)}%`;
-  const ringP = ex.kind === 'hold' && S.phase === 'active' ? tr.held / ex.holdSec : tr.reps.length / ex.reps;
-  $('ring').style.setProperty('--p', ringP.toFixed(3));
-  if (ex.kind === 'hold' && S.phase === 'active' && tr.state === 'active') {
-    $('repNow').textContent = Math.max(1, Math.ceil(ex.holdSec - tr.held));
-    $('repOf').textContent = 'seconds';
-  } else {
-    $('repNow').textContent = tr.reps.length;
-    $('repOf').textContent = `of ${ex.reps}`;
+  const holding = ex.kind === 'hold' && S.phase === 'active';
+  const part = S.phase === 'done' ? 1 : holding ? tr.held / ex.holdSec : tr.reps.length / ex.reps;
+  $('meterFill').style.height = `${Math.round(Math.min(1, part) * 100)}%`;
+  $('meterNum').textContent = ex.kind === 'hold'
+    ? (holding && tr.state !== 'cool' ? Math.max(1, Math.ceil(ex.holdSec - tr.held)) : ex.holdSec)
+    : tr.reps.length;
+  $('meterLabel').textContent = ex.kind === 'hold' ? 'HOLD' : `OF ${ex.reps}`;
+  // Current exercise's bar fills as its reps are completed.
+  const seg = $('segs').children[S.idx];
+  if (seg) {
+    const whole = S.phase === 'done' ? 1 : (tr.reps.length + (holding ? Math.min(1, tr.held / ex.holdSec) : 0)) / ex.reps;
+    seg.style.setProperty('--p', `${Math.round(Math.min(1, whole) * 100)}%`);
   }
 
   // Coach animation

@@ -185,14 +185,29 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 }
 
 /* ---------- summary ---------- */
-.sum-card { text-align: center; padding: 34px 20px; border-radius: 28px; margin: 18px 0;
+.sum-card { display: grid; grid-template-columns: minmax(0, 240px) 1fr minmax(0, 240px); gap: 20px; align-items: stretch;
+  text-align: center; padding: 20px; border-radius: 28px; margin: 18px 0;
   background: radial-gradient(120% 140% at 50% 0%, #1d3b6b 0%, var(--panel) 70%); }
+.sum-mid { align-self: center; padding: 14px 0; min-width: 0; }
 .sum-card h2 { margin: 0; font-size: 34px; }
-.sum-card .bigstars { font-size: 64px; letter-spacing: .08em; margin: 10px 0; }
+.sum-card .bigstars { font-size: clamp(36px, 5.2vw, 64px); letter-spacing: .08em; margin: 10px 0; white-space: nowrap; }
 .sum-card .bigstars span { color: rgba(255, 255, 255, .2); }
 .sum-card .bigstars span.on { color: var(--star); }
 .sum-card .count { font-size: 22px; font-weight: 800; }
-.sum-card .row { justify-content: center; margin-top: 20px; }
+/* big picture buttons a pre-reader can use */
+.bigbtn { aspect-ratio: 1; width: 100%; align-self: center; border-radius: 32px; color: #fff; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4%; padding: 8%;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, .28), inset 0 2px 0 rgba(255, 255, 255, .28); transition: transform .1s, box-shadow .1s; }
+.bigbtn:active { transform: translateY(6px); box-shadow: 0 2px 0 rgba(0, 0, 0, .28), inset 0 2px 0 rgba(255, 255, 255, .28); }
+.bigbtn:focus-visible { outline: 4px solid #fff; outline-offset: 3px; }
+.bigbtn svg { width: 62%; flex: none; }
+.bigbtn span { font-size: clamp(24px, 3.4vw, 40px); font-weight: 900; letter-spacing: .01em; }
+.bigbtn.home { background: linear-gradient(160deg, #a66bff, #6b2fd6); }
+.bigbtn.again { background: linear-gradient(160deg, #3fdc7f, #14a85a); }
+@media (max-width: 760px) {
+  .sum-card { grid-template-columns: 1fr 1fr; }
+  .sum-mid { grid-column: 1 / -1; grid-row: 1; }
+}
 .steps li .st { color: var(--star); letter-spacing: .05em; white-space: nowrap; }
 .steps li .st u { text-decoration: none; color: rgba(255, 255, 255, .2); }
 

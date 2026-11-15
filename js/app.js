@@ -275,10 +275,19 @@ function endSession(toSummary) {
   const row = (n) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? '★' : '<u>★</u>')).join('');
   $('summary').innerHTML = `
     <div class="sum-card">
-      <h2>${reps ? `Way to go, ${esc(k.name)}!` : 'All done!'}</h2>
-      <div class="bigstars">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= Math.round(avg) ? 'on' : ''}">★</span>`).join('')}</div>
-      <div class="count">You earned <span class="star">★ ${total}</span> out of ${reps * 5} in ${esc(S.title)}</div>
-      <div class="row"><button class="ghost" data-again>Play again</button><button class="primary" data-home>Home</button></div>
+      <button class="bigbtn home" data-home aria-label="Home">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 12 8 48h12v38h22V62h16v24h22V48h12z" fill="currentColor" stroke="currentColor" stroke-width="6" stroke-linejoin="round"/></svg>
+        <span>Home</span>
+      </button>
+      <div class="sum-mid">
+        <h2>${reps ? `Way to go, ${esc(k.name)}!` : 'All done!'}</h2>
+        <div class="bigstars">${[1, 2, 3, 4, 5].map((i) => `<span class="${i <= Math.round(avg) ? 'on' : ''}">★</span>`).join('')}</div>
+        <div class="count">${reps ? `You earned <span class="star">★ ${total}</span> out of ${reps * 5} in ${esc(S.title)}` : `No stars this time in ${esc(S.title)}`}</div>
+      </div>
+      <button class="bigbtn again" data-again aria-label="Play again">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 18a32 32 0 1 1-30.4 22" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"/><path d="M52 2v32L30 18z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/></svg>
+        <span>Again</span>
+      </button>
     </div>
     <ol class="steps">${S.results.map((r, i) => `<li><i>${i + 1}</i><b>${r.ex.emoji} ${esc(r.ex.name)}</b>
       <span class="st">${r.stars.length ? row(r.stars.reduce((a, b) => a + b, 0) / r.stars.length) : '<small>skipped</small>'}</span></li>`).join('')}</ol>`;

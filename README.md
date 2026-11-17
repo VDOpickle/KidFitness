@@ -60,8 +60,11 @@ Pick the **Games** tab. The child's avatar runs down a road and the child steers
 | Squat | Duck under high beams |
 | Reach up | Pop balloons for stars |
 
-Three levels add moves gradually: Sunny Road (lean, jump), Forest Run (adds squat) and Beach Dash
-(adds reach). A hint with a small coach figure shows the next move as an obstacle gets close, and the
+Four scenes: Sunny Road (lean, jump), Forest Run (adds squat), Beach Dash (adds reach) and **Jerusalem**.
+
+**Jerusalem** is an illustrated Old City street drawn in the app: limestone buildings with shop awnings, the golden
+dome, a tower and the city wall on the horizon. Cars to dodge (lean), street lamps hanging across the road to duck
+under (squat), and potholes to jump over. It is hand-drawn on the canvas, not Google Street View. A hint with a small coach figure shows the next move as an obstacle gets close, and the
 voice says it once. There are no lives: bumps cost points on the final rating, not the run. Each star
 collected goes to the player's total, and the end screen gives 1–5 stars (60% stars collected, 40% obstacles cleared).
 

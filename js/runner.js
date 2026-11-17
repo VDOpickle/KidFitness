@@ -26,6 +26,11 @@ export const LEVELS = [
     speed: 10, count: 20, gap: [2.0, 2.6], seed: 37,
     theme: { sky: ['#6fd3ff', '#fff0c4'], hill: '#ffd98a', grass: ['#f6dfa6', '#e5c27a'], road: '#6f6a72', sun: '#ffd25c',
       scenery: ['🌴', '🐚', '🌴', '🏖️'], blocks: ['🦀', '🚧'] } },
+  { id: 'jerusalem', name: 'Jerusalem', emoji: '🏰', hue: 38, blurb: 'Old City streets: dodge cars, duck under lamps, jump potholes!', moves: ['lean', 'jump', 'duck'],
+    speed: 8.5, count: 16, gap: [2.2, 3.0], seed: 53,
+    theme: { scene: 'jerusalem', buildings: true, hurdle: 'pothole', beam: 'lamp',
+      sky: ['#79c4f2', '#ffe9c2'], hill: '#cdb89b', grass: ['#e6d3a4', '#cdb27a'], road: '#6b665f', sun: '#fff0a8',
+      curb: ['#efe0bb', '#d3b784'], blocks: ['🚗', '🚕', '🚙', '🚌'] } },
 ];
 
 function rng(seed) {

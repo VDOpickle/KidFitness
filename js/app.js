@@ -1,6 +1,7 @@
 import { EXERCISES, PROGRAMS, byId } from './catalog.js';
 import { Tracker } from './engine.js';
-import { figureSVG, lerpPose, synth } from './figure.js';
+import { figureSVG, lerpPose, synth, joints, sideJoints, viewPoses, landmarksFromJoints, sideLandmarks } from './figure.js';
+import { avatars, avatarFor, activeLook, buildLook, loadImage, drawAvatar, SWATCHES, DEFAULT_LOOK } from './avatar.js';
 import { LEVELS, RunnerGame, Bot, inputFromPose } from './runner.js';
 import { drawScene } from './runnerView.js';
 
@@ -107,7 +108,7 @@ function renderKids() {
     `<button class="kid ${k.id === store.current ? 'on' : ''}" data-kid="${k.id}">
       <i style="background:${KID_COLORS[i % KID_COLORS.length]}">${esc(k.name[0].toUpperCase())}</i>
       ${esc(k.name)} <small>★ ${k.stars}</small></button>`).join('') +
-    '<button class="kid add" data-kid="add">+ Add</button>';
+    '<button class="kid add" data-kid="add">+ Add</button><button class="kid add av" data-avatar>🧍 My avatar</button>';
 }
 
 function renderGrid() {
@@ -157,6 +158,7 @@ document.addEventListener('click', (ev) => {
   else if (d.ex) startSession(byId[d.ex].name, [byId[d.ex]]);
   else if (d.start) { const p = PROGRAMS.find((x) => x.id === d.start); startSession(p.name, p.steps.map((id) => byId[id])); }
   else if ('back' in d || 'home' in d) renderHome();
+  else if ('avatar' in d) openAvatar();
   else if (d.game) startGame(d.game);
   else if ('again' in d) (lastPlay.game ? startGame(lastPlay.game) : startSession(S.title, S.list));
   else if ('sim' in d) { forceSim = true; S.sim = true; $('video').hidden = true; beginExercise(0); }
@@ -255,6 +257,7 @@ function beginExercise(i) {
   S.tracker = new Tracker(ex);
   S.results[i] = { ex, stars: [] };
   Object.assign(S, { phase: 'intro', tPhase: performance.now(), seen: 0, lost: 0, simA: 0, simAmp: 1, simPh: 0 });
+  refreshAvatarUI();
   $('hudEmoji').textContent = ex.emoji;
   $('hudName').textContent = ex.name;
   $('hudStep').textContent = S.list.length > 1 ? `${i + 1} / ${S.list.length}` : '';
@@ -343,11 +346,113 @@ $('voiceBtn').onclick = () => {
   if (!store.voice) { try { speechSynthesis.cancel(); } catch { /* ignore */ } }
 };
 
+// ---------------------------------------------------------------- figures on small canvases (coach front/side, you side)
+function fitCanvas(cv) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.max(1, Math.round(cv.clientWidth * dpr)), H = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  return [cv.getContext('2d'), W, H];
+}
+
+// makeLm(aspect) -> 33 normalised landmarks, or null to draw only the floor.
+function paintFigure(cv, makeLm, { look = null, side = false, floor = false, color = '#2fe0c2' } = {}) {
+  const [c, W, H] = fitCanvas(cv);
+  c.clearRect(0, 0, W, H);
+  const fy = H * 0.96;
+  c.fillStyle = 'rgba(255,255,255,.07)'; c.beginPath(); c.ellipse(W / 2, fy, W * 0.34, H * 0.018, 0, 0, 7); c.fill();
+  if (floor) { c.strokeStyle = 'rgba(255,255,255,.16)'; c.setLineDash([4, 5]); c.beginPath(); c.moveTo(W * 0.06, fy); c.lineTo(W * 0.94, fy); c.stroke(); c.setLineDash([]); }
+  const lm = makeLm && makeLm(W / H);
+  if (!lm) return;
+  if (look) return drawAvatar(c, lm, W, H, look, { side });
+  const wd = Math.max(3, H * 0.032), far = (a, b) => side && a % 2 === 0 && b % 2 === 0 && a > 10;
+  c.lineCap = 'round'; c.strokeStyle = color; c.lineWidth = wd;
+  for (const [a, b] of BONES) {
+    if (lm[a].visibility === 0 || lm[b].visibility === 0) continue;
+    c.globalAlpha = far(a, b) ? 0.45 : 1;
+    c.beginPath(); c.moveTo(lm[a].x * W, lm[a].y * H); c.lineTo(lm[b].x * W, lm[b].y * H); c.stroke();
+  }
+  c.globalAlpha = 1;
+  c.fillStyle = color; c.beginPath(); c.arc(lm[0].x * W, lm[0].y * H, H * 0.062, 0, 7); c.fill();
+  c.fillStyle = '#fff';
+  for (const i of JOINTS) { if (lm[i].visibility === 0) continue; c.beginPath(); c.arc(lm[i].x * W, lm[i].y * H, wd * 0.55, 0, 7); c.fill(); }
+}
+
+// ---------------------------------------------------------------- avatar editor
+function refreshAvatarUI() {
+  const a = avatars[store.current];
+  $('avTog').hidden = !(a && a.look);
+  $('avTog').classList.toggle('off', !(a && a.use));
+}
+
+function paintAvatarDialog() {
+  const a = avatarFor(store.current), look = a.look;
+  paintFigure($('avPrev'), (asp) => landmarksFromJoints(joints({ armL: 22, armR: 22 }), { aspect: asp, k: 0.8, floorY: 0.97 }), { look });
+  $('avName').textContent = !look ? 'No avatar yet, so the stick figure is shown.'
+    : a.photoName ? `${a.photoName} · ${look.found ? 'body found, colours matched' : 'head only, pick colours below'}` : 'Cartoon avatar';
+  $('avSw').innerHTML = Object.entries(SWATCHES).map(([part, list]) =>
+    `<div class="sw-row"><span>${part[0].toUpperCase() + part.slice(1)}</span>${list.map((c) =>
+      `<button type="button" class="sw ${look && look[part].toLowerCase() === c ? 'on' : ''}" data-part="${part}" data-color="${c}" style="background:${c}" aria-label="${part} colour"></button>`).join('')}</div>`).join('');
+  $('avUse').checked = a.use;
+  refreshAvatarUI();
+}
+
+function openAvatar() {
+  $('avWho').textContent = kid().name;
+  paintAvatarDialog();
+  $('avDlg').showModal();
+  paintAvatarDialog(); // paint again now that the dialog has a size
+}
+
+async function setPhoto(loader, name) {
+  const a = avatarFor(store.current);
+  $('avName').textContent = 'Reading the photo…';
+  try { a.look = await buildLook(await loader()); a.photoName = name; a.use = true; }
+  catch { $('avName').textContent = "Couldn't read that picture. Try another one."; return; }
+  paintAvatarDialog();
+}
+
+let capStream = null;
+function closeCapture() { capStream?.getTracks().forEach((t) => t.stop()); capStream = null; $('capVid').srcObject = null; if ($('capDlg').open) $('capDlg').close(); }
+
+$('avUpload').onclick = () => $('avFile').click();
+$('avFile').onchange = (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  setPhoto(() => loadImage(url), f.name).finally(() => URL.revokeObjectURL(url));
+};
+$('avClear').onclick = () => { const a = avatarFor(store.current); a.look = null; a.photoName = ''; paintAvatarDialog(); };
+$('avUse').onchange = (e) => { avatarFor(store.current).use = e.target.checked; refreshAvatarUI(); };
+$('avDone').onclick = () => $('avDlg').close();
+$('avSw').addEventListener('click', (e) => {
+  const b = e.target.closest('.sw'); if (!b) return;
+  const a = avatarFor(store.current);
+  a.look ||= { ...DEFAULT_LOOK };
+  a.look[b.dataset.part] = b.dataset.color; a.use = true;
+  paintAvatarDialog();
+});
+$('avShoot').onclick = async () => {
+  $('avDlg').close(); $('capDlg').showModal();
+  try {
+    capStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    $('capVid').srcObject = capStream; await $('capVid').play();
+  } catch { closeCapture(); openAvatar(); $('avName').textContent = 'The camera could not start. You can upload a photo instead.'; }
+};
+$('capCancel').onclick = () => { closeCapture(); openAvatar(); };
+$('capGo').onclick = () => {
+  const v = $('capVid'), c = document.createElement('canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0);
+  const url = c.toDataURL('image/jpeg', 0.9);
+  closeCapture(); openAvatar();
+  setPhoto(() => loadImage(url), 'Camera photo');
+};
+$('capDlg').addEventListener('cancel', () => { closeCapture(); });
+$('avTog').onclick = () => { const a = avatars[store.current]; if (a) { a.use = !a.use; refreshAvatarUI(); } };
+
 // ---------------------------------------------------------------- per-frame loop
 function simPose(now) {
   const ex = S.ex, tr = S.tracker;
-  if (S.phase !== 'active') return ex.demo.rest;
-  const tgt = ex.demo.targets[tr.reps.length % ex.demo.targets.length];
+  if (S.phase !== 'active') { S.simView = viewPoses(ex.demo, 0, 0); return S.simView.front; }
   if (ex.kind === 'rep') {
     const ph = ((now - S.tPhase) % 1700) / 1700;
     if (ph < S.simPh) S.simAmp = 0.7 + Math.random() * 0.35;
@@ -358,7 +463,8 @@ function simPose(now) {
     S.simA += ((tr.state === 'cool' ? 0 : 1) - S.simA) * 0.08;
     if (tr.state === 'rest' && S.simA > 0.97) S.simAmp = Math.min(1, S.simAmp + 0.004); // never get stuck short of a pose
   }
-  return lerpPose(ex.demo.rest, tgt, S.simA * Math.min(1, S.simAmp));
+  S.simView = viewPoses(ex.demo, tr.reps.length, S.simA * Math.min(1, S.simAmp));
+  return S.simView.front;
 }
 
 function readPose(now) {
@@ -409,17 +515,21 @@ function draw(pose, prog, ok) {
   const mix = active ? prog : 0;
   const col = `rgb(${Math.round(47 + 62 * mix)}, ${Math.round(224 + 31 * mix)}, ${Math.round(194 - 26 * mix)})`;
 
-  g.lineCap = 'round';
-  g.shadowColor = col; g.shadowBlur = 2.2 * u;
-  g.strokeStyle = col; g.lineWidth = 1.1 * u; g.globalAlpha = ok ? 0.95 : 0.45;
-  g.beginPath();
-  for (const [a, b] of BONES) if (vis(a) && vis(b)) { g.moveTo(X(a), Y(a)); g.lineTo(X(b), Y(b)); }
-  g.stroke();
-  if (vis(0) && vis(11) && vis(12)) { // head ring
-    const r = Math.hypot(X(11) - X(12), Y(11) - Y(12)) * 0.34;
-    g.beginPath(); g.arc(X(0), Y(0), r, 0, 7); g.stroke();
+  const look = S.sim ? activeLook(store.current) : null; // on the live camera the child sees themselves, so only the demo player wears the avatar
+  if (look) drawAvatar(g, p.map((q) => ({ x: q.x / S.aspect, y: q.y, z: 0, visibility: q.v })), W, H, look);
+  else {
+    g.lineCap = 'round';
+    g.shadowColor = col; g.shadowBlur = 2.2 * u;
+    g.strokeStyle = col; g.lineWidth = 1.1 * u; g.globalAlpha = ok ? 0.95 : 0.45;
+    g.beginPath();
+    for (const [a, b] of BONES) if (vis(a) && vis(b)) { g.moveTo(X(a), Y(a)); g.lineTo(X(b), Y(b)); }
+    g.stroke();
+    if (vis(0) && vis(11) && vis(12)) { // head ring
+      const r = Math.hypot(X(11) - X(12), Y(11) - Y(12)) * 0.34;
+      g.beginPath(); g.arc(X(0), Y(0), r, 0, 7); g.stroke();
+    }
+    g.shadowBlur = 0;
   }
-  g.shadowBlur = 0;
 
   const focus = new Set(S.ex.focus);
   for (const i of JOINTS) {
@@ -501,7 +611,13 @@ function frame(now) {
   const T = ex.demo.targets, per = ex.kind === 'hold' ? 3200 : 1700;
   const ph = (now % per) / per, which = Math.floor(now / per) % T.length;
   const a = ex.kind === 'hold' ? Math.min(1, Math.max(0, Math.sin(Math.PI * ph) * 1.8)) : 0.5 - 0.5 * Math.cos(2 * Math.PI * ph);
-  $('coachFig').innerHTML = figureSVG(lerpPose(ex.demo.rest, T[which], a));
+  const look = activeLook(store.current), v = viewPoses(ex.demo, which, a);
+  paintFigure($('coachCv'), (asp) => landmarksFromJoints(joints(v.front), { aspect: asp }), { look });
+  paintFigure($('coachSide'), (asp) => landmarksFromJoints(sideJoints(v.side, v.planar), { aspect: asp }), { look, side: true, floor: true });
+  let you = null;
+  if (S.sim) { const sv = S.simView || v; you = (asp) => landmarksFromJoints(sideJoints(sv.side, sv.planar), { aspect: asp }); }
+  else if (pose && ok) you = (asp) => sideLandmarks(pose.w, { aspect: asp });
+  paintFigure($('youSide'), you, { look, side: true, floor: true, color: '#6dffa8' });
 
   draw(pose, prog, ok);
 }
@@ -655,7 +771,7 @@ function gframe(now) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const W = Math.round(gcv.clientWidth * dpr), H = Math.round(gcv.clientHeight * dpr);
   if (gcv.width !== W || gcv.height !== H) { gcv.width = W; gcv.height = H; }
-  drawScene(gg, W, H, G, now);
+  drawScene(gg, W, H, G, now, activeLook(store.current));
   drawPip(pose);
 }
 

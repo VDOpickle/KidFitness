@@ -154,6 +154,11 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .coach { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .coach-fig { flex: 1; min-height: 120px; display: grid; place-items: center; }
 .coach-fig svg { height: 100%; max-height: 300px; }
+.coach-fig canvas { width: 100%; height: 100%; max-height: 300px; }
+.views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.views figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.views canvas { width: 100%; aspect-ratio: 5 / 6; display: block; border-radius: 12px; background: #0d1528; }
+.views figcaption { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); text-align: center; }
 .cue { margin: 6px 0 0; font-size: 17px; font-weight: 700; line-height: 1.35; }
 .pips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .pips i { font-style: normal; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 10px; display: grid; place-items: center;
@@ -173,6 +178,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   .cue { font-size: 14px; }
   .total { display: none; }
   .hero-fig { display: none; }
+  .views { display: none; }
 }
 
 @media (max-width: 520px) {
@@ -243,3 +249,21 @@ dialog .row { justify-content: flex-end; }
 .g-pip video, .g-pip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #gvideo { object-fit: cover; transform: scaleX(-1); }
 @media (max-width: 520px) { .g-hint { top: 88px; padding-right: 16px; } .g-pip { width: 130px; } }
+
+/* ---------- avatar ---------- */
+.kid.add.av { border-style: solid; color: var(--text); }
+#avDlg { width: min(460px, 92vw); }
+.av-row { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+#avPrev { width: 110px; height: 150px; flex: none; border-radius: 16px; background: #0d1528; }
+.av-side { display: grid; gap: 10px; min-width: 0; }
+.note { margin: 0; font-size: 13px; line-height: 1.4; color: var(--dim); }
+dialog > .note { margin: 12px 0; }
+.swatches { display: grid; gap: 8px; margin-bottom: 12px; }
+.sw-row { display: flex; align-items: center; gap: 8px; }
+.sw-row > span { width: 56px; font-size: 13px; font-weight: 800; color: var(--dim); }
+.sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25); }
+.sw.on { border-color: #fff; }
+.check { display: flex; gap: 10px; align-items: center; font-weight: 700; font-size: 14px; }
+.check input { width: 20px; height: 20px; accent-color: var(--teal); }
+#capVid { width: 100%; border-radius: 16px; background: #000; transform: scaleX(-1); }
+#avTog.off { opacity: .45; }

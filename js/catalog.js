@@ -78,7 +78,8 @@ export const EXERCISES = [
     cue: 'Bend your knees like a frog, then stand up tall!', tip: 'Bend your knees a little more!',
     focus: [23, 24, 25, 26],
     measure: (p, w) => map(avg(knee, w), 160, 100),
-    demo: { rest: {}, targets: [{ legL: 65, legR: 65, shinL: -15, shinR: -15, armL: 70, armR: 70 }] } },
+    demo: { rest: {}, targets: [{ legL: 65, legR: 65, shinL: -15, shinR: -15, armL: 70, armR: 70 }],
+      side: { rest: {}, targets: [{ lean: 28, legL: 72, legR: 72, shinL: -8, shinR: -8, armL: 80, armR: 80 }] } } },
 
   { id: 'jacks', cat: 'workout', kind: 'rep', reps: 6, name: 'Star Jumps', emoji: '⭐',
     cue: 'Jump your feet out and throw your arms up like a star!', tip: 'Reach your arms up higher!',
@@ -96,7 +97,8 @@ export const EXERCISES = [
     cue: 'March on the spot. Lift your knees up high!', tip: 'Lift your knee up higher!',
     focus: LEGS,
     measure: (p, w) => Math.max(map(hipFlex(w, 0), 165, 105), map(hipFlex(w, 1), 165, 105)),
-    demo: T([{ legL: 78, shinL: 0, armR: 50 }, { legR: 78, shinR: 0, armL: 50 }]) },
+    demo: { ...T([{ legL: 78, shinL: 0, armR: 50 }, { legR: 78, shinR: 0, armL: 50 }]),
+      side: { rest: {}, targets: [{ legL: 85, shinL: -5, armR: 55, foreR: 80, armL: -25 }, { legR: 85, shinR: -5, armL: 55, foreL: 80, armR: -25 }] } } },
 
   { id: 'sideBend', cat: 'workout', kind: 'rep', reps: 6, name: 'Windy Tree', emoji: '🌳',
     cue: 'Sway side to side like a tree in the wind!', tip: 'Lean over a little further!',
@@ -114,7 +116,8 @@ export const EXERCISES = [
     cue: 'Lift a knee and tap it with your other elbow!', tip: 'Bring your elbow closer to your knee!',
     focus: [13, 14, 25, 26],
     measure: (p) => Math.max(map(dist(p[L_EL], p[R_KN]) / shW(p), 1.5, 0.6), map(dist(p[R_EL], p[L_KN]) / shW(p), 1.5, 0.6)),
-    demo: T([{ fold: 0.4, legR: -70, shinR: 0, armL: -10, foreL: -10 }, { fold: 0.4, legL: -70, shinL: 0, armR: -10, foreR: -10 }]) },
+    demo: { ...T([{ fold: 0.4, legR: -70, shinR: 0, armL: -10, foreL: -10 }, { fold: 0.4, legL: -70, shinL: 0, armR: -10, foreR: -10 }]),
+      side: { rest: {}, targets: [{ lean: 22, legR: 85, shinR: -5, armL: 60, foreL: 120 }, { lean: 22, legL: 85, shinL: -5, armR: 60, foreR: 120 }] } } },
 
   { id: 'hops', cat: 'workout', kind: 'rep', reps: 6, name: 'Bunny Hops', emoji: '🐰',
     cue: 'Hop up and down like a bunny!', tip: 'Jump a little higher!',
@@ -144,7 +147,8 @@ export const EXERCISES = [
     cue: 'Run on the spot as fast as you can!', tip: 'Pick your feet up!',
     focus: LEGS,
     measure: (p, w) => Math.max(map(hipFlex(w, 0), 170, 130), map(hipFlex(w, 1), 170, 130)),
-    demo: T([{ legL: 52, shinL: -20, armR: 40, armL: -20 }, { legR: 52, shinR: -20, armL: 40, armR: -20 }]) },
+    demo: { ...T([{ legL: 52, shinL: -20, armR: 40, armL: -20 }, { legR: 52, shinR: -20, armL: 40, armR: -20 }]),
+      side: { rest: {}, targets: [{ legL: 60, shinL: -55, armR: 70, foreR: 110, armL: -35, foreL: -10 }, { legR: 60, shinR: -55, armL: 70, foreL: 110, armR: -35, foreR: -10 }] } } },
 
   { id: 'wings', cat: 'workout', kind: 'rep', reps: 8, name: 'Flap Your Wings', emoji: '🐦',
     cue: 'Flap your arms up and down like a bird!', tip: 'Lift your wings up to your shoulders!',
@@ -193,7 +197,8 @@ export const EXERCISES = [
     cue: 'Stand on one leg like a flamingo. Then switch legs!', tip: 'Lift your foot a bit higher!',
     focus: LEGS,
     measure: (p) => map(footLift(p), 0.1, 0.35),
-    demo: T([{ legL: 50, shinL: -40, armL: 80, armR: 80 }, { legR: 50, shinR: -40, armL: 80, armR: 80 }]) },
+    demo: { ...T([{ legL: 50, shinL: -40, armL: 80, armR: 80 }, { legR: 50, shinR: -40, armL: 80, armR: 80 }]),
+      side: { rest: {}, targets: [{ legL: 30, shinL: -95, armL: 80, armR: 80 }, { legR: 30, shinR: -95, armL: 80, armR: 80 }] } } },
 
   { id: 'bigHug', cat: 'stretch', kind: 'hold', reps: 2, holdSec: 5, name: 'Big Bear Hug', emoji: '🐻',
     cue: 'Wrap your arms around yourself for a big bear hug!', tip: 'Hug yourself tighter!',
@@ -223,7 +228,8 @@ export const EXERCISES = [
     cue: 'Bend your knees and sit on a pretend chair. Hold it!', tip: 'Sit down a little lower!',
     focus: [23, 24, 25, 26],
     measure: (p, w) => map(avg(knee, w), 165, 125),
-    demo: T([{ legL: 50, legR: 50, shinL: -10, shinR: -10, armL: 85, armR: 85 }]) },
+    demo: { ...T([{ legL: 50, legR: 50, shinL: -10, shinR: -10, armL: 85, armR: 85 }]),
+      side: { rest: {}, targets: [{ lean: 18, legL: 70, legR: 70, shinL: -5, shinR: -5, armL: 85, armR: 85 }] } } },
 
   { id: 'tree', cat: 'stretch', kind: 'hold', reps: 2, holdSec: 4, name: 'Tree Pose', emoji: '🌲',
     cue: 'Stand on one leg and grow your branches up high!', tip: 'Lift your foot and reach up!',
@@ -255,7 +261,8 @@ export const EXERCISES = [
     cue: 'Heels together, toes apart. Bend your knees out like a diamond, then stand tall!', tip: 'Bend your knees out a little more!',
     focus: [23, 24, 25, 26],
     measure: (p, w) => map(avg(knee, w), 165, 125),
-    demo: { rest: { armL: 30, armR: 30, foreL: -15, foreR: -15 }, targets: [{ legL: 50, legR: 50, shinL: -10, shinR: -10, armL: 30, armR: 30, foreL: -15, foreR: -15 }] } },
+    demo: { rest: { armL: 30, armR: 30, foreL: -15, foreR: -15 }, targets: [{ legL: 50, legR: 50, shinL: -10, shinR: -10, armL: 30, armR: 30, foreL: -15, foreR: -15 }],
+      side: { rest: {}, targets: [{ legL: 38, legR: 38, shinL: -30, shinR: -30, armL: 30, armR: 30 }] } } },
 
   { id: 'releve', cat: 'workout', kind: 'rep', reps: 6, name: 'Tippy-Toe Rises', emoji: '👟',
     cue: 'Rise up tall on your tippy toes, then come down softly!', tip: 'Lift your heels up higher!',

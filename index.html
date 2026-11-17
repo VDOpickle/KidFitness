@@ -55,6 +55,7 @@
       <div class="hud-top">
         <div class="pill"><span id="hudEmoji"></span><b id="hudName"></b><span id="hudStep" class="dim"></span></div>
         <div class="hud-btns">
+          <button id="avTog" title="Show my avatar" hidden>🧍</button>
           <button id="voiceBtn" title="Voice on/off">🔊</button>
           <button id="skipBtn">Skip ›</button>
           <button id="exitBtn" title="Exit">✕</button>
@@ -72,8 +73,12 @@
   <aside class="side">
     <div class="coach">
       <div class="label">Copy the coach</div>
-      <div id="coachFig" class="coach-fig"></div>
+      <div id="coachFig" class="coach-fig"><canvas id="coachCv" aria-label="Coach, front view"></canvas></div>
       <p id="cue" class="cue"></p>
+    </div>
+    <div class="views">
+      <figure><canvas id="coachSide" aria-label="Coach, side view"></canvas><figcaption>Coach · side</figcaption></figure>
+      <figure><canvas id="youSide" aria-label="You, side view"></canvas><figcaption>You · side</figcaption></figure>
     </div>
     <div class="counter">
       <div class="label" id="repLabel">Reps</div>
@@ -99,6 +104,29 @@
 
 <!-- ============ SUMMARY ============ -->
 <main id="summary" class="screen" hidden></main>
+
+<dialog id="avDlg">
+  <h3>🧍 <span id="avWho"></span>'s avatar</h3>
+  <div class="av-row">
+    <canvas id="avPrev" aria-label="Avatar preview"></canvas>
+    <div class="av-side">
+      <div id="avName" class="note"></div>
+      <div class="row"><button type="button" id="avUpload" class="ghost small">Upload photo</button><button type="button" id="avShoot" class="ghost small">Take photo</button><button type="button" id="avClear" class="ghost small">Remove</button></div>
+    </div>
+  </div>
+  <input type="file" id="avFile" accept="image/*" hidden>
+  <div id="avSw" class="swatches"></div>
+  <label class="check"><input type="checkbox" id="avUse" checked> Show my avatar on the coach and the demo player</label>
+  <p class="note">Private: the photo and colours stay in this browser tab. They are never saved or uploaded, and they clear when the page reloads.</p>
+  <div class="row"><button type="button" id="avDone" class="primary">Done</button></div>
+</dialog>
+
+<dialog id="capDlg">
+  <h3>Smile! 📸</h3>
+  <video id="capVid" playsinline muted></video>
+  <p class="note">Stand back so your head and body are in the picture. The photo stays on this device.</p>
+  <div class="row"><button type="button" id="capCancel" class="ghost">Cancel</button><button type="button" id="capGo" class="primary">Take photo</button></div>
+</dialog>
 
 <dialog id="kidDlg">
   <form method="dialog">

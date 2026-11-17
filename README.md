@@ -68,6 +68,32 @@ collected goes to the player's total, and the end screen gives 1–5 stars (60% 
 Code: `js/runner.js` (course, rules, pose-to-input mapping, demo player; no DOM) and `js/runnerView.js` (drawing).
 The demo mode plays Road Run too; `npm test` plays every level with a bot driven through the same pose pipeline.
 
+## My avatar
+
+The **My avatar** button on the home screen (next to the player names) opens the avatar editor.
+Ported from the Kinetra adult app and adapted for children:
+
+- **Photo to avatar:** upload a photo or take one with the camera. The head becomes a circular crop, and shirt,
+  trousers, skin and hair colours are sampled from the photo. If no body is found in the picture, only the head is used.
+- **No photo needed:** pick shirt, trousers, skin and hair colours to get a cartoon avatar with a face.
+- **Where it shows:** on the coach (front and side), on the demo player, and as the runner in Road Run, where the
+  colours are used. On the live camera it is not drawn over the child, who sees themselves.
+- **Private by design:** the photo and colours live in memory only. They are never saved or uploaded, and clear on reload.
+- **Left out on purpose:** the adult app's weight/height body-size setting and its "paste an image link" box.
+
+## Side view
+
+The play screen has two small side-view panels under the coach:
+
+- **Coach · side:** how the coach looks from the side. Seven moves have a side pose drawn for them (squats, chair,
+  plié, marching, speedy feet, elbow to knee, flamingo). For every other move the front pose is projected onto the
+  side plane, so arms raised out to the side correctly appear as short vertical lines pointing at the camera.
+- **You · side:** the child seen from the side, built live from the camera's 3D body points (scaled by torso length, so
+  small children fill the panel like adults). In demo mode it shows the demo player.
+
+Depth from a single camera is an estimate, so the live side view is approximate. The panels are hidden on narrow
+(phone-portrait) screens.
+
 ## How scoring works
 
 Each exercise has a `measure()` function in `js/catalog.js` that turns the tracked joints into a
@@ -97,8 +123,10 @@ js/app.js                   camera, skeleton overlay, session flow, profiles
 js/catalog.js               exercises, programs, and their detectors
 js/engine.js                rep/hold tracking and star scoring
 js/runner.js, js/runnerView.js   Road Run game (rules + drawing)
-js/figure.js                stick-figure coach and synthetic poses
+js/figure.js                stick-figure coach, side-view figures and synthetic poses
+js/avatar.js                avatar from a photo or picked colours, drawing
 models/, vendor/            MediaPipe Pose Landmarker model + runtime (Apache-2.0)
 test/engine.test.mjs        runs every detector against its own coach animation
 test/runner.test.mjs        plays every Road Run level with a bot
+test/figure.test.mjs        front and side figures stay in the panel for every exercise
 ```

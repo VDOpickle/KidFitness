@@ -95,3 +95,64 @@ export function synth(pose, aspect = 16 / 9, scale = 0.75) {
   for (const k in MP) lm[MP[k]] = { x: aspect / 2 + j[k].x * scale, y: 0.93 + j[k].y * scale, z: 0, v: 1 };
   return lm;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Side view. The figure faces screen-right; the near limb is the child's left.
+//
+//  planar = true : the pose is authored for the side view (angles are forward swings: armL 80 = arm
+//                  straight out in front, legL 70 = thigh forward). Used for squats, marching, etc.
+//  planar = false: the pose is a front-view pose. Its limbs are projected onto the side plane, so arms
+//                  raised out to the side point at the camera and appear as short vertical lines.
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+export const foldAngle = (fold) => Math.acos(clamp(1 - 1.1 * fold, -1, 1)) / D;
+
+export function sideJoints(pose, planar = false) {
+  const p = resolve(pose);
+  const fwd = (planar ? p.lean : 0) + foldAngle(p.fold);
+  const lat = planar ? 0 : p.lean * D;
+  const T = DIM.torso, f = fwd * D;
+  const neck = { x: Math.sin(f) * T, y: -Math.cos(f) * Math.cos(lat) * T };
+  const ha = (fwd + 25 * p.fold) * D;
+  const j = { neck, shL: neck, shR: neck, hipL: { x: 0, y: 0 }, hipR: { x: 0, y: 0 } };
+  j.head = { x: neck.x + Math.sin(ha) * DIM.neck, y: neck.y - Math.cos(ha) * DIM.neck };
+  j.earL = j.head; j.earR = j.head;
+  const seg = (from, len, ang) => (planar
+    ? { x: from.x + Math.sin(ang * D) * len, y: from.y + Math.cos(ang * D) * len }
+    : { x: from.x, y: from.y + Math.cos(ang * D) * len }); // front-view limb seen end-on
+  j.elL = seg(neck, DIM.upper, p.armL); j.elR = seg(neck, DIM.upper, p.armR);
+  j.wrL = seg(j.elL, DIM.fore, p.foreL); j.wrR = seg(j.elR, DIM.fore, p.foreR);
+  j.knL = seg(j.hipL, DIM.thigh, p.legL); j.knR = seg(j.hipR, DIM.thigh, p.legR);
+  j.anL = seg(j.knL, DIM.shin, p.shinL); j.anR = seg(j.knR, DIM.shin, p.shinR);
+  const up = p.rise * 0.045;
+  const dy = -Math.max(j.anL.y, j.anR.y) - p.lift - up;
+  for (const k in j) j[k] = { x: j[k].x, y: j[k].y + dy };
+  j.toeL = { x: j.anL.x + 0.07, y: j.anL.y + up }; j.toeR = { x: j.anR.x + 0.07, y: j.anR.y + up };
+  return j;
+}
+
+/** Front pose, side pose and whether the side pose is authored, for coach target `which` at blend `a`. */
+export function viewPoses(demo, which, a) {
+  const front = lerpPose(demo.rest, demo.targets[which % demo.targets.length], a);
+  const sd = demo.side;
+  const side = sd ? lerpPose(sd.rest, sd.targets[which % sd.targets.length], a) : front;
+  return { front, side, planar: !!sd };
+}
+
+/** Joints -> 33 normalised landmarks (0..1 of a w x h canvas, y down) so the avatar and skeleton drawers can use them. */
+export function landmarksFromJoints(j, { aspect = 1, k = 0.84, cx = 0.5, floorY = 0.96 } = {}) {
+  const lm = Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));
+  for (const key in MP) if (j[key]) lm[MP[key]] = { x: cx + (j[key].x * k) / aspect, y: floorY + j[key].y * k, z: 0, visibility: 1 };
+  return lm;
+}
+
+/** Side view of a measured body (MediaPipe world landmarks, metres). Faces screen-right, feet on the floor line.
+ *  Scaled from the torso length so a child and an adult fill the panel alike. */
+export function sideLandmarks(wl, { aspect = 1, k = 0.84, cx = 0.5, floorY = 0.96 } = {}) {
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: ((a.z || 0) + (b.z || 0)) / 2 });
+  const sh = mid(wl[11], wl[12]), hp = mid(wl[23], wl[24]);
+  const T = Math.hypot(sh.x - hp.x, sh.y - hp.y, sh.z - hp.z) || 0.3;
+  const s = (k * DIM.torso) / T;
+  let low = -9;
+  for (const i of [27, 28, 31, 32]) low = Math.max(low, wl[i].y);
+  return wl.map((q) => ({ x: cx + ((-(q.z || 0) + hp.z) * s) / aspect, y: floorY + (q.y - low) * s, z: 0, visibility: 1 }));
+}

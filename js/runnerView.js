@@ -11,7 +11,7 @@ function emoji(g, ch, x, y, size, alpha = 1) {
   g.globalAlpha = 1;
 }
 
-export function drawScene(g, W, H, G, now) {
+export function drawScene(g, W, H, G, now, look = null) {
   const th = G.level.theme, P = G.player, pos = G.pos;
   const hz = H * 0.34, gy = H * 0.86, cx = W / 2;
   const LW = Math.min(W * (W < H ? 0.24 : 0.17), H * 0.3), U = Math.min(H * 0.27, LW); // U: height unit; scales down on narrow screens
@@ -85,7 +85,7 @@ export function drawScene(g, W, H, G, now) {
       }
     } });
   }
-  draws.push({ a: 0, fn: () => avatar(g, X(P.x, 0), Y(0), U, G, now) });
+  draws.push({ a: 0, fn: () => avatar(g, X(P.x, 0), Y(0), U, G, now, look) });
   draws.sort((p, q) => q.a - p.a).forEach((d) => d.fn());
 
   // floating "+1" and bump marks
@@ -99,7 +99,8 @@ export function drawScene(g, W, H, G, now) {
 }
 
 // The child's avatar, seen from behind.
-function avatar(g, x, y, U, G, now) {
+function avatar(g, x, y, U, G, now, look) {
+  const C = { shirt: look?.shirt || '#ff7a59', pants: look?.pants || '#3b5bdb', skin: look?.skin || '#ffcfa3', hair: look?.hair || '#5b3a29' };
   const P = G.player, run = G.speed > 0 ? 1 : 0, phase = G.pos * 1.5;
   const jump = P.jh, duck = P.duck, reach = Math.max(P.reach, jump * 0.55);
   const lift = jump * 0.65 * U;
@@ -116,7 +117,7 @@ function avatar(g, x, y, U, G, now) {
   for (const s of [-1, 1]) {
     const ph = phase + (s > 0 ? 0 : Math.PI), foot = Math.max(0, Math.sin(ph)) * 0.2 * U * run * (1 - jump);
     const tuck = jump * 0.22 * U, spread = (0.1 + 0.09 * duck) * U;
-    g.strokeStyle = '#3b5bdb'; g.lineWidth = U * 0.17;
+    g.strokeStyle = C.pants; g.lineWidth = U * 0.17;
     g.beginPath(); g.moveTo(x + s * 0.1 * U, hipY); g.lineTo(x + s * spread, y - lift - foot - tuck); g.stroke();
     g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x + s * spread, y - lift - foot - tuck, U * 0.12, U * 0.07, 0, 0, 7); g.fill();
   }
@@ -124,17 +125,17 @@ function avatar(g, x, y, U, G, now) {
   for (const s of [-1, 1]) {
     const sx = x + s * 0.27 * U, sy = topY + U * 0.07, sw = Math.sin(phase + (s > 0 ? Math.PI : 0)) * run * (1 - reach);
     const hx = x + s * (0.34 - 0.14 * reach) * U, hy = sy + (0.34 + 0.1 * sw) * U * (1 - reach) - reach * 0.5 * U;
-    g.strokeStyle = '#ff7a59'; g.lineWidth = U * 0.14;
+    g.strokeStyle = C.shirt; g.lineWidth = U * 0.14;
     g.beginPath(); g.moveTo(sx, sy); g.lineTo(hx, hy); g.stroke();
-    g.fillStyle = '#ffcfa3'; g.beginPath(); g.arc(hx, hy, U * 0.075, 0, 7); g.fill();
+    g.fillStyle = C.skin; g.beginPath(); g.arc(hx, hy, U * 0.075, 0, 7); g.fill();
   }
   // torso, head
-  g.fillStyle = '#ff7a59'; g.beginPath(); g.roundRect(x - 0.25 * U, topY, 0.5 * U, torsoH, 0.13 * U); g.fill();
+  g.fillStyle = C.shirt; g.beginPath(); g.roundRect(x - 0.25 * U, topY, 0.5 * U, torsoH, 0.13 * U); g.fill();
   g.fillStyle = '#ffffff'; g.fillRect(x - 0.25 * U, topY + torsoH * 0.55, 0.5 * U, U * 0.05);
-  g.fillStyle = '#ffcfa3'; g.fillRect(x - 0.06 * U, topY - 0.05 * U, 0.12 * U, 0.08 * U);
+  g.fillStyle = C.skin; g.fillRect(x - 0.06 * U, topY - 0.05 * U, 0.12 * U, 0.08 * U);
   const hy = topY - 0.17 * U;
-  g.fillStyle = '#ffcfa3'; g.beginPath(); g.arc(x - 0.17 * U, hy + 0.02 * U, U * 0.04, 0, 7); g.arc(x + 0.17 * U, hy + 0.02 * U, U * 0.04, 0, 7); g.fill();
-  g.fillStyle = '#5b3a29'; g.beginPath(); g.arc(x, hy, U * 0.18, 0, 7); g.fill();
+  g.fillStyle = C.skin; g.beginPath(); g.arc(x - 0.17 * U, hy + 0.02 * U, U * 0.04, 0, 7); g.arc(x + 0.17 * U, hy + 0.02 * U, U * 0.04, 0, 7); g.fill();
+  g.fillStyle = C.hair; g.beginPath(); g.arc(x, hy, U * 0.18, 0, 7); g.fill();
   g.fillStyle = '#2fe0c2'; g.fillRect(x - 0.18 * U, hy - 0.03 * U, 0.36 * U, 0.05 * U);
   g.restore();
   g.globalAlpha = 1;
